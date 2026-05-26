@@ -1,5 +1,5 @@
 {
-  "executive_summary": "AWS infrastructure audit reveals $5,726.62 in monthly waste ($68,719.44 annually) across 41 resources, primarily from idle compute resources. The top offender is a platform team's idle RDS instance costing $691.20/month that has been running unused for 68 days. Immediate action is required as 87% of waste comes from idle resources that can be safely terminated or scheduled.",
+  "executive_summary": "Your AWS infrastructure is wasting $68,719 annually across 41 resources, with the majority ($59,884) coming from idle EC2 instances and RDS databases running with extremely low utilization. The worst offender is a sandbox RDS instance that's been idle for 68 days, burning $691 monthly with just 2.91% CPU usage. Immediate action on the top 10 findings alone would save $48,516 annually with zero business impact.",
   "total_monthly_waste": 5726.62,
   "total_annual_waste": 68719.44,
   "findings": [
@@ -8,10 +8,10 @@
       "finding_id": "IDLE-RDS-LA8541",
       "resource_name": "platform-sandbox-rds-03",
       "team": "platform",
-      "plain_english": "This database has been running in the sandbox environment for 68 days but is completely idle with only 2.91% CPU usage. Unlike EC2 instances, RDS databases cannot be stopped for more than 7 days, so it keeps automatically restarting and burning money.",
-      "business_impact": "At $691.20 monthly, this single unused database wastes over $8,000 annually while providing zero business value.",
+      "plain_english": "This database has been sitting idle for 68 days in your sandbox environment, using only 2.91% of its CPU capacity. Unlike EC2 instances, RDS can't be stopped for more than 7 days, so it's been continuously charging you $691 per month for doing essentially nothing.",
+      "business_impact": "This single unused database is costing $8,294 annually with zero business value.",
       "monthly_saving": 691.2,
-      "priority_action": "Create a final backup snapshot and delete the database immediately if no active development needs it.",
+      "priority_action": "Create a final backup snapshot and delete this database immediately if no active development is using it.",
       "cli_fix": "aws rds create-db-snapshot --db-instance-identifier db-PLA8541 --db-snapshot-identifier db-PLA8541-final-snap"
     },
     {
@@ -19,10 +19,10 @@
       "finding_id": "IDLE-EC2-938612",
       "resource_name": "payments-staging-ec2-16",
       "team": "payments",
-      "plain_english": "This staging server has been running for 94 days with only 4.18% CPU usage, well below the 5% threshold for active use. It's essentially an expensive server doing nothing but consuming electricity and compute resources.",
-      "business_impact": "This idle server wastes $552.90 monthly, equivalent to $6,634.80 annually that could fund actual development needs.",
+      "plain_english": "This server has been running for 94 days with only 4.18% CPU usage, well below productive levels. It's essentially a very expensive computer that's turned on but not doing any meaningful work.",
+      "business_impact": "Wasting $6,635 annually on unused staging capacity that could be provisioned on-demand when needed.",
       "monthly_saving": 552.9,
-      "priority_action": "Stop the instance immediately and set up automated start/stop scheduling if occasional access is needed.",
+      "priority_action": "Stop this instance immediately and implement auto-scheduling to start it only when staging tests are needed.",
       "cli_fix": "aws ec2 stop-instances --instance-ids i-07517938612 --region ap-south-1"
     },
     {
@@ -30,10 +30,10 @@
       "finding_id": "IDLE-EC2-514789",
       "resource_name": "payments-dev-ec2-21",
       "team": "payments",
-      "plain_english": "This development server has been idling for 62 days with 3.92% CPU usage, indicating no active development work. Development environments should typically be shut down outside business hours.",
-      "business_impact": "Continuous operation of unused dev resources wastes $552.90 monthly and sets a precedent for poor resource management.",
+      "plain_english": "This development server has been running for 62 days with only 3.92% CPU usage. Development environments typically don't need to run 24/7 since developers work normal business hours.",
+      "business_impact": "Burning $6,635 annually on always-on development infrastructure that likely sits unused nights and weekends.",
       "monthly_saving": 552.9,
-      "priority_action": "Implement automated start/stop scheduling for dev environments to run only during business hours.",
+      "priority_action": "Stop this instance and train developers to start it only when actively coding.",
       "cli_fix": "aws ec2 stop-instances --instance-ids i-01420514789 --region eu-west-1"
     },
     {
@@ -41,10 +41,10 @@
       "finding_id": "IDLE-EC2-237817",
       "resource_name": "data-eng-sandbox-ec2-23",
       "team": "data-eng",
-      "plain_english": "This sandbox server for data engineering experiments has been running for 39 days with minimal 4.04% CPU usage. Sandbox environments should be ephemeral and deleted after experimentation.",
-      "business_impact": "Leaving sandbox resources running indefinitely wastes $552.90 monthly and can lead to forgotten expensive resources.",
+      "plain_english": "This sandbox server for data engineering experiments has been idle for 39 days with 4.04% CPU usage. Sandbox environments should be ephemeral and destroyed when experiments are complete.",
+      "business_impact": "Costing $6,635 annually for experimental infrastructure that should be created and destroyed as needed.",
       "monthly_saving": 552.9,
-      "priority_action": "Terminate the instance and establish a policy requiring sandbox resources to have automatic expiration dates.",
+      "priority_action": "Terminate this instance and establish a policy that sandbox resources must be tagged with auto-deletion dates.",
       "cli_fix": "aws ec2 stop-instances --instance-ids i-03090237817 --region ap-south-1"
     },
     {
@@ -52,38 +52,93 @@
       "finding_id": "IDLE-EC2-602734",
       "resource_name": "data-eng-prod-ec2-12",
       "team": "data-eng",
-      "plain_english": "This production server has been running for 40 days with extremely low 2.18% CPU usage, suggesting it's not handling any meaningful workload. Production resources should be actively serving business functions.",
-      "business_impact": "Idle production resources waste $489.60 monthly and may indicate inefficient architecture or forgotten deployments.",
+      "plain_english": "This production data engineering server has been running for 40 days with only 2.18% CPU usage. Even in production, servers should be right-sized or replaced with auto-scaling solutions.",
+      "business_impact": "Wasting $5,875 annually on oversized production capacity that could be downsized or moved to serverless.",
       "monthly_saving": 489.6,
-      "priority_action": "Investigate if this server has any dependencies, then migrate workloads or terminate if truly unused.",
+      "priority_action": "Investigate if this workload can be moved to AWS Lambda, Glue, or a smaller instance type.",
       "cli_fix": "aws ec2 stop-instances --instance-ids i-04272602734 --region eu-west-1"
+    },
+    {
+      "rank": 6,
+      "finding_id": "IDLE-EC2-899549",
+      "resource_name": "frontend-staging-ec2-13",
+      "team": "frontend",
+      "plain_english": "This frontend staging server has been running for 22 days with just 1.1% CPU usage. Staging environments for frontend apps can typically be replaced with serverless hosting or on-demand containers.",
+      "business_impact": "Spending $5,875 annually on staging infrastructure that could be replaced with much cheaper serverless alternatives.",
+      "monthly_saving": 489.6,
+      "priority_action": "Migrate this staging environment to AWS App Runner, Amplify, or implement start/stop automation.",
+      "cli_fix": "aws ec2 stop-instances --instance-ids i-04944899549 --region eu-west-1"
+    },
+    {
+      "rank": 7,
+      "finding_id": "IDLE-EC2-792787",
+      "resource_name": "frontend-dev-ec2-04",
+      "team": "frontend",
+      "plain_english": "This frontend development server has been running for 106 days with only 2.2% CPU usage. Development servers should be stopped when not actively being used for coding or testing.",
+      "business_impact": "Wasting $4,356 annually on development infrastructure that likely sits unused most of the time.",
+      "monthly_saving": 363.0,
+      "priority_action": "Stop this instance and create a simple start/stop script for developers to use when needed.",
+      "cli_fix": "aws ec2 stop-instances --instance-ids i-02625792787 --region eu-west-1"
+    },
+    {
+      "rank": 8,
+      "finding_id": "IDLE-EC2-494220",
+      "resource_name": "frontend-staging-ec2-05",
+      "team": "frontend",
+      "plain_english": "This frontend staging server has been idle for 93 days with 2.95% CPU usage. Staging environments should only run when testing is actively happening, not 24/7.",
+      "business_impact": "Burning $4,356 annually on staging capacity that could be provisioned on-demand for testing cycles.",
+      "monthly_saving": 363.0,
+      "priority_action": "Stop this instance and integrate start/stop automation with your CI/CD pipeline to provision staging on-demand.",
+      "cli_fix": "aws ec2 stop-instances --instance-ids i-05231494220 --region ap-south-1"
+    },
+    {
+      "rank": 9,
+      "finding_id": "IDLE-EC2-251661",
+      "resource_name": "payments-sandbox-ec2-07",
+      "team": "payments",
+      "plain_english": "This payments sandbox server has been running for 51 days with 3.92% CPU usage. Sandbox environments should be temporary and cleaned up regularly to prevent cost accumulation.",
+      "business_impact": "Costing $3,319 annually for experimental infrastructure that provides no ongoing business value.",
+      "monthly_saving": 276.6,
+      "priority_action": "Terminate this sandbox instance and implement automatic cleanup policies for all sandbox resources.",
+      "cli_fix": "aws ec2 stop-instances --instance-ids i-01240251661 --region ap-south-1"
+    },
+    {
+      "rank": 10,
+      "finding_id": "IDLE-EC2-598054",
+      "resource_name": "platform-prod-ec2-19",
+      "team": "platform",
+      "plain_english": "This production platform server has been running for 87 days with only 2.07% CPU usage. Production resources should be right-sized and this appears significantly oversized for its actual workload.",
+      "business_impact": "Wasting $3,319 annually on production capacity that could be downsized or consolidated with other services.",
+      "monthly_saving": 276.6,
+      "priority_action": "Analyze this server's actual workload and either downsize to a smaller instance type or consolidate with other services.",
+      "cli_fix": "aws ec2 stop-instances --instance-ids i-09822598054 --region eu-west-1"
     }
   ],
   "quick_wins": [
-    "Stop all sandbox and dev environment EC2 instances outside business hours using AWS Instance Scheduler",
-    "Create snapshots and delete the idle RDS instance in platform-sandbox that's been unused for 68 days",
-    "Implement automated termination tags on all sandbox resources to auto-delete after 7 days of inactivity"
+    "Stop all sandbox and development EC2 instances immediately - they can be restarted when needed with zero data loss",
+    "Create final snapshots and delete the idle RDS instance in sandbox that's been unused for 68 days",
+    "Implement AWS Instance Scheduler on all non-production environments to automatically stop instances outside business hours"
   ],
   "team_breakdown": {
-    "platform": {
-      "monthly_waste": 967.8,
-      "top_issue": "Idle RDS database running continuously in sandbox environment"
-    },
     "payments": {
       "monthly_waste": 1382.4,
-      "top_issue": "Multiple idle EC2 instances across staging, dev, and sandbox environments"
+      "top_issue": "Multiple idle staging and development instances that should be stopped when not in use"
+    },
+    "platform": {
+      "monthly_waste": 967.8,
+      "top_issue": "Idle RDS database in sandbox burning $691 monthly for 68 days with minimal usage"
     },
     "data-eng": {
       "monthly_waste": 1042.5,
-      "top_issue": "Unused production and sandbox EC2 instances with very low CPU utilization"
+      "top_issue": "Idle servers in both production and sandbox that need right-sizing or termination"
     },
     "frontend": {
-      "monthly_waste": 1215.6,
-      "top_issue": "Long-running idle EC2 instances in staging and dev environments"
+      "monthly_waste": 852.6,
+      "top_issue": "Multiple staging and development environments running 24/7 instead of on-demand"
     }
   },
-  "closing_recommendation": "Implement automated resource lifecycle management with mandatory expiration dates for non-production environments and require business justification for any resource running idle for more than 7 days. Establish weekly cost reviews by team leads to catch waste early and prevent these issues from accumulating.",
-  "generated_at": "2026-05-26 15:24",
+  "closing_recommendation": "Implement a company-wide policy requiring all non-production resources to have auto-stop schedules and automatic cleanup dates. The top 10 findings alone represent $48,516 in annual waste that can be eliminated this week with zero impact on development velocity.",
+  "generated_at": "2026-05-26 16:56",
   "all_findings": [
     {
       "finding_id": "IDLE-EC2-334018",

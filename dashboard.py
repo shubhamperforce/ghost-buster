@@ -192,13 +192,13 @@ with main_col:
         with c1:
             st.markdown(f"""<div class="metric-card">
                 <div class="metric-label">Monthly opportunity</div>
-                <div class="metric-value">${total_monthly:,.0f}</div>
+                <div class="metric-value">&#36;{total_monthly:,.0f}</div>
                 <div class="metric-sub">recoverable now</div>
             </div>""", unsafe_allow_html=True)
         with c2:
             st.markdown(f"""<div class="metric-card">
                 <div class="metric-label">Annual opportunity</div>
-                <div class="metric-value">${total_annual:,.0f}</div>
+                <div class="metric-value">&#36;{total_annual:,.0f}</div>
                 <div class="metric-sub">if unaddressed</div>
             </div>""", unsafe_allow_html=True)
         with c3:
@@ -212,7 +212,7 @@ with main_col:
                 pct = round((total_monthly / total_spend) * 100, 1)
                 st.markdown(f"""<div class="metric-card">
                     <div class="metric-label">Total spend</div>
-                    <div class="metric-value">${total_spend:,.0f}</div>
+                    <div class="metric-value">&#36;{total_spend:,.0f}</div>
                     <div class="metric-sub">{pct}% recoverable</div>
                 </div>""", unsafe_allow_html=True)
             else:
@@ -220,7 +220,7 @@ with main_col:
                 st.markdown(f"""<div class="metric-card">
                     <div class="metric-label">Top finding</div>
                     <div class="metric-value">{top_f.get('name','—')[:12]}</div>
-                    <div class="metric-sub">${top_f.get('monthly_saving',0):,.0f}/mo</div>
+                    <div class="metric-sub">&#36;{top_f.get('monthly_saving',0):,.0f}/mo</div>
                 </div>""", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -293,7 +293,7 @@ with main_col:
             for f in filtered:
                 sev = f["severity"].lower()
                 action_html = f'<div class="cli-box">$ {f["aws_action"]}</div>' if show_action and f["aws_action"] else ""
-                saving = f"${f['monthly_saving']:,.2f}/mo opportunity" if f["monthly_saving"] > 0 else "Investigate"
+                saving = f"&#36;{f['monthly_saving']:,.2f}/mo opportunity" if f["monthly_saving"] > 0 else "Investigate"
                 st.markdown(f"""
                 <div class="finding-card {sev}">
                     <div class="finding-rank">FINDING #{f['rank']}</div>
@@ -346,19 +346,19 @@ with main_col:
             with m1:
                 st.markdown(f"""<div class="metric-card">
                     <div class="metric-label">Total S3 spend</div>
-                    <div class="metric-value">${s3_data['total_monthly_cost']:,.0f}<span style="font-size:1rem">/mo</span></div>
+                    <div class="metric-value">&#36;{s3_data['total_monthly_cost']:,.0f}<span style="font-size:1rem">/mo</span></div>
                     <div class="metric-sub">{s3_data['total_buckets']} buckets tracked</div>
                 </div>""", unsafe_allow_html=True)
             with m2:
                 st.markdown(f"""<div class="metric-card">
                     <div class="metric-label">Potential monthly savings</div>
-                    <div class="metric-value">${s3_data['potential_saving']:,.0f}<span style="font-size:1rem">/mo</span></div>
+                    <div class="metric-value">&#36;{s3_data['potential_saving']:,.0f}<span style="font-size:1rem">/mo</span></div>
                     <div class="metric-sub">{saving_pct}% of S3 spend recoverable</div>
                 </div>""", unsafe_allow_html=True)
             with m3:
                 st.markdown(f"""<div class="metric-card">
                     <div class="metric-label">Annual savings opportunity</div>
-                    <div class="metric-value" style="color:#10b981">${annual_saving:,.0f}</div>
+                    <div class="metric-value" style="color:#10b981">&#36;{annual_saving:,.0f}</div>
                     <div class="metric-sub">if actioned today</div>
                 </div>""", unsafe_allow_html=True)
             with m4:
@@ -575,28 +575,35 @@ with main_col:
                     f'<div class="cli-box">$ {b["cli_fix"]}</div>'
                     if show_s3_cli else ""
                 )
+                # Pre-compute dollar strings — avoids Streamlit treating $X as LaTeX
+                size_str    = f'{b["size_gb"]:,.0f} GB'
+                cost_str    = f'USD {b["monthly_cost_usd"]:,.2f}/mo'
+                saving_html = (
+                    f'<span style="color:#10b981;font-weight:600;margin-left:8px">'
+                    f'&#9650; Save USD {b["potential_saving"]:,.2f}/mo</span>'
+                    if b["potential_saving"] > 0 else ""
+                )
                 st.markdown(f"""
                 <div class="finding-card" style="border-left-color:{tier_col}">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start">
                         <div>
                             <div class="finding-name">{b['resource_name']}</div>
-                            <div style="font-size:0.78rem;color:#888">{b['resource_id']} · {b['region']} · {b['team']} · {b['environment']}</div>
+                            <div style="font-size:0.78rem;color:#888">{b['resource_id']} &middot; {b['region']} &middot; {b['team']} &middot; {b['environment']}</div>
                         </div>
                         <div style="text-align:right;font-size:0.85rem;font-weight:600;color:#1a1a2e">
-                            {b['size_gb']:,.0f} GB &nbsp;|&nbsp; ${b['monthly_cost_usd']:,.2f}/mo
+                            {size_str} &nbsp;|&nbsp; {cost_str}
                         </div>
                     </div>
                     <div class="finding-meta" style="margin-top:8px">
                         <span class="badge" style="background:{tier_col}22;color:{tier_col};border:1px solid {tier_col}44">
                             {b['access_tier']}
                         </span>
-                        <span class="badge badge-category">📅 Last accessed: {b['last_accessed']}</span>
-                        <span class="badge badge-medium">⏱ {b['days_since_access']}d idle</span>
+                        <span class="badge badge-category">&#128197; Last accessed: {b['last_accessed']}</span>
+                        <span class="badge badge-medium">&#9201; {b['days_since_access']}d idle</span>
                         {terminate_badge}
                     </div>
                     <div style="font-size:0.82rem;color:#555;margin-top:6px">
-                        💡 {b['recommendation']}
-                        {"&nbsp;&nbsp;<strong style='color:#10b981'>Save ~$" + f"{b['potential_saving']:,.2f}/mo</strong>" if b['potential_saving'] > 0 else ""}
+                        &#128161; {b['recommendation']}{saving_html}
                     </div>
                     {cli_html}
                 </div>""", unsafe_allow_html=True)
