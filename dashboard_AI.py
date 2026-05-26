@@ -1,4 +1,4 @@
-import json, os, urllib.request
+import json, os, urllib.request, glob
 import streamlit as st
 import plotly.express as px
 import pandas as pd
@@ -38,6 +38,12 @@ st.markdown("""
 .chat-bubble-user{background:#EFF6FF;border-radius:10px;padding:8px 12px;margin:4px 0;font-size:0.84rem;color:#1E3A5F}
 .chat-bubble-ai{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:8px 12px;margin:4px 0;font-size:0.84rem;color:#1E293B}
 .sug-btn{font-size:0.75rem}
+.untagged-banner{background:#fff7ed;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;padding:12px 16px;font-size:0.86rem;color:#92400e;margin-bottom:16px}
+.untagged-row{background:white;border-radius:8px;padding:10px 14px;border:1px solid #fde68a;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.untagged-id{font-family:monospace;font-size:0.8rem;color:#1a1a2e;font-weight:600}
+.untagged-cost{font-size:0.84rem;font-weight:700;color:#e05252}
+.untagged-svc{font-size:0.72rem;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:99px;font-weight:600}
+.tag-cli{background:#1e1e2e;color:#fbbf24;font-family:monospace;font-size:0.74rem;padding:6px 10px;border-radius:6px;margin-top:4px;overflow-x:auto;white-space:nowrap}
 </style>
 """, unsafe_allow_html=True)
 
@@ -311,6 +317,178 @@ with main_col:
     st.markdown("---")
     st.markdown("#### 📋 Leadership recommendation")
     st.info(report.get("closing_recommendation", ""))
+
+    # ── Untagged Resources Panel ───────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("#### 🏷️ Untagged Resources")
+
+    @st.cache_data
+    def load_resource_csv():
+        """Load converted_costs.csv if available, else fall back to aws_cost_data.csv."""
+        for candidate in ["converted_costs.csv", "aws_cost_data.csv"]:
+            path = os.environ.get("GHOSTBUSTERS_CSV", candidate)
+            if os.path.exists(path):
+                try:
+                    return pd.read_csv(path)
+                except Exception:
+                    continue
+        return pd.DataFrame()
+
+    rdf = load_resource_csv()
+
+    if rdf.empty:
+        st.info("No resource CSV loaded. Run the detection pipeline first.")
+    else:
+        # Identify untagged: team is 'untagged', missing, or environment is 'unknown'
+        def is_untagged(row):
+            team = str(row.get("team", "")).strip().lower()
+            env  = str(row.get("environment", "")).strip().lower()
+            tags = str(row.get("tags", "")).strip().lower()
+            return (
+                team in ("untagged", "", "nan", "none") or
+                env  in ("unknown", "", "nan", "none") or
+                tags in ("source:cost-explorer", "", "nan", "none")
+            )
+
+        untagged_df = rdf[rdf.apply(is_untagged, axis=1)].copy()
+        tagged_df   = rdf[~rdf.apply(is_untagged, axis=1)].copy()
+
+        total_resources  = len(rdf)
+        untagged_count   = len(untagged_df)
+        untagged_cost    = untagged_df["monthly_cost_usd"].sum() if "monthly_cost_usd" in untagged_df.columns else 0
+        total_cost       = rdf["monthly_cost_usd"].sum() if "monthly_cost_usd" in rdf.columns else 0
+        untagged_pct     = round(untagged_count / total_resources * 100, 1) if total_resources else 0
+        untagged_cost_pct= round(untagged_cost / total_cost * 100, 1) if total_cost else 0
+
+        # Metric cards row
+        ut1, ut2, ut3, ut4 = st.columns(4)
+        with ut1:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Untagged resources</div>
+                <div class="metric-value" style="color:#f59e0b">{untagged_count}</div>
+                <div class="metric-sub" style="color:#f59e0b">{untagged_pct}% of total</div>
+            </div>""", unsafe_allow_html=True)
+        with ut2:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Untagged monthly spend</div>
+                <div class="metric-value" style="color:#e05252">${untagged_cost:,.0f}</div>
+                <div class="metric-sub">{untagged_cost_pct}% of total spend</div>
+            </div>""", unsafe_allow_html=True)
+        with ut3:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Tagged resources</div>
+                <div class="metric-value" style="color:#10b981">{len(tagged_df)}</div>
+                <div class="metric-sub">{100-untagged_pct}% coverage</div>
+            </div>""", unsafe_allow_html=True)
+        with ut4:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Untagged annual cost</div>
+                <div class="metric-value" style="color:#e05252">${untagged_cost*12:,.0f}</div>
+                <div class="metric-sub">no ownership visibility</div>
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        if untagged_count == 0:
+            st.success("✅ All resources are tagged. Great governance!")
+        else:
+            st.markdown(
+                f'<div class="untagged-banner">⚠️ <strong>{untagged_count} resources ({untagged_pct}%) have no team/environment tags</strong> — '
+                f'accounting for <strong>${untagged_cost:,.2f}/mo</strong> of spend with no ownership visibility. '
+                f'Without tags you cannot chargeback costs, enforce policies, or identify owners when issues arise.</div>',
+                unsafe_allow_html=True
+            )
+
+            # Donut: tagged vs untagged by cost
+            ut_chart_l, ut_chart_r = st.columns(2)
+            with ut_chart_l:
+                st.markdown("**Tagging coverage by spend**")
+                tag_pie = pd.DataFrame([
+                    {"Status": "Untagged", "Cost": round(untagged_cost, 2)},
+                    {"Status": "Tagged",   "Cost": round(total_cost - untagged_cost, 2)},
+                ])
+                fig_tag = px.pie(tag_pie, values="Cost", names="Status",
+                    color_discrete_map={"Untagged": "#f59e0b", "Tagged": "#10b981"}, hole=0.5)
+                fig_tag.update_traces(textposition="outside", textinfo="label+percent")
+                fig_tag.update_layout(showlegend=False, paper_bgcolor="white",
+                    margin=dict(l=0,r=0,t=10,b=0), height=220)
+                st.plotly_chart(fig_tag, use_container_width=True)
+
+            with ut_chart_r:
+                st.markdown("**Untagged spend by service**")
+                if "service" in untagged_df.columns:
+                    svc_untagged = (
+                        untagged_df.groupby("service")["monthly_cost_usd"]
+                        .sum().reset_index()
+                        .sort_values("monthly_cost_usd", ascending=True)
+                        .tail(8)
+                    )
+                    svc_untagged.columns = ["Service", "Cost"]
+                    fig_svc = px.bar(svc_untagged, x="Cost", y="Service", orientation="h",
+                        color="Cost", color_continuous_scale=["#fef3c7", "#f59e0b"], text="Cost")
+                    fig_svc.update_traces(texttemplate="$%{text:,.0f}", textposition="outside")
+                    fig_svc.update_layout(showlegend=False, coloraxis_showscale=False,
+                        plot_bgcolor="white", paper_bgcolor="white",
+                        margin=dict(l=0,r=60,t=10,b=0), height=220,
+                        yaxis=dict(showgrid=False), xaxis=dict(showgrid=True, gridcolor="#f0f0f0"))
+                    st.plotly_chart(fig_svc, use_container_width=True)
+
+            # Table of untagged resources
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("**Resources missing tags** — sorted by monthly cost")
+
+            show_cols = [c for c in ["resource_id","resource_name","service","region","team","environment","monthly_cost_usd","tags"] if c in untagged_df.columns]
+            display_df = (
+                untagged_df[show_cols]
+                .sort_values("monthly_cost_usd", ascending=False)
+                .reset_index(drop=True)
+            )
+            display_df.index += 1
+
+            # Search filter
+            tag_search = st.text_input("🔍 Filter by resource ID or service", placeholder="e.g. vol- or EC2", key="tag_search")
+            if tag_search:
+                mask = display_df.apply(lambda row: tag_search.lower() in str(row).lower(), axis=1)
+                display_df = display_df[mask]
+
+            st.dataframe(
+                display_df,
+                use_container_width=True,
+                height=min(400, 40 + len(display_df) * 35),
+                column_config={
+                    "monthly_cost_usd": st.column_config.NumberColumn("Monthly Cost ($)", format="$%.2f"),
+                    "resource_id":      st.column_config.TextColumn("Resource ID"),
+                    "resource_name":    st.column_config.TextColumn("Name"),
+                    "service":          st.column_config.TextColumn("Service"),
+                    "region":           st.column_config.TextColumn("Region"),
+                    "team":             st.column_config.TextColumn("Team"),
+                    "environment":      st.column_config.TextColumn("Environment"),
+                    "tags":             st.column_config.TextColumn("Tags"),
+                }
+            )
+
+            # Tagging CLI helper
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("**Fix it — bulk tag via AWS CLI:**")
+            top_untagged = untagged_df.sort_values("monthly_cost_usd", ascending=False).head(3)
+            for _, row in top_untagged.iterrows():
+                rid = row.get("resource_id", "")
+                region = row.get("region", "us-east-1")
+                svc = str(row.get("service", "")).lower()
+                if "ec2" in svc or rid.startswith(("i-", "vol-", "snap-")):
+                    cli = f"aws ec2 create-tags --resources {rid} --tags Key=team,Value=your-team Key=environment,Value=prod Key=owner,Value=your-name --region {region}"
+                elif "rds" in svc:
+                    cli = f"aws rds add-tags-to-resource --resource-name {rid} --tags Key=team,Value=your-team Key=environment,Value=prod --region {region}"
+                elif "s3" in svc:
+                    cli = f"aws s3api put-bucket-tagging --bucket {rid} --tagging 'TagSet=[{{Key=team,Value=your-team}},{{Key=environment,Value=prod}}]'"
+                else:
+                    cli = f"aws resourcegroupstaggingapi tag-resources --resource-arn-list {rid} --tags team=your-team,environment=prod,owner=your-name --region {region}"
+                st.markdown(
+                    f'<div class="tag-cli">$ {cli}</div>',
+                    unsafe_allow_html=True
+                )
+
+    st.markdown("---")
     st.caption("Built for Perforce Global Jam 2026 · Team Ghost Busters · Cloud Cost Waste Hunter")
 
 # ── RIGHT PANEL: FinOps AI Chatbot ────────────────────────────────────────────
