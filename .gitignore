@@ -28,6 +28,8 @@ override.tf.json
 # Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
 # example: *tfplan*
 plan.out
+.terraform.lock.hcl
+.DS_Store
 
 # Python
 venv/
@@ -35,12 +37,15 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Sensitive billing exports (real AWS account data)
-SM_api_key
+# Generated analysis outputs
+findings.json
+s3_analysis.json
+billing_report.json
+llm_report.json
 
-# macOS
-.DS_Store
-.terraform.lock.hcl
-.DS_Store
+# Real AWS billing exports (contain account data — do not commit)
+costs.csv
+costs_with_s3.csv
 
+# Sensitive credentials
 SM_api_key
