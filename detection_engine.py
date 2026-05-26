@@ -561,4 +561,6 @@ def run_detection(filepath="aws_cost_data.csv"):
     return output
 
 if __name__ == "__main__":
-    run_detection("aws_cost_data.csv")
+    import os
+    csv_path = os.environ.get("GHOSTBUSTERS_CSV", "aws_cost_data.csv")
+    run_detection(csv_path)
